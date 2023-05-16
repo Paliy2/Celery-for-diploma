@@ -3,6 +3,7 @@ import os
 
 import pytest
 
+from celery.backends.base import BaseKeyValueStoreBackend
 # we have to import the pytest plugin fixtures here,
 # in case user did not do the `python setup.py develop` yet,
 # that installs the pytest plugin into the setuptools registry.
@@ -89,11 +90,22 @@ def celery_class_tasks():
     from t.integration.tasks import ClassBasedAutoRetryTask
     return [ClassBasedAutoRetryTask]
 
-def skip_if_not_redis(func):
-    @pytest.mark.skipif(reason="Requires redis result backend.")
-    def wrapper(*args, **kwargs):
-        manager = args[0]  # Assumes the first argument is the manager fixture
-        if not manager.app.conf.result_backend.startswith("redis"):
-            pytest.skip("Requires redis result backend.")
-        return func(*args, **kwargs)
-    return wrapper
+
+@pytest.fixture
+def skip_if_not_redis(manager):
+    if not manager.app.conf.result_backend.startswith("redis"):
+        pytest.skip("Requires redis result backend.")
+
+
+@pytest.fixture
+def skip_if_chords_not_allowed(manager):
+    try:
+        manager.app.backend.ensure_chords_allowed()
+    except NotImplementedError as e:
+        raise pytest.skip(e.args[0])
+
+
+@pytest.fixture
+def skip_if_not_key_val_backend(manager):
+    if not isinstance(manager.app.backend, BaseKeyValueStoreBackend):
+        raise pytest.skip("The delay may only occur in the cache backend")
