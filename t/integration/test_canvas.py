@@ -226,11 +226,9 @@ class test_chain:
         sig = signature('any_taskname', queue='any_q')
         chain([chain(sig)]).apply_async()
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_on_error(self, manager):
         from .tasks import ExpectedException
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
 
         # Run the chord and wait for the error callback to finish.
         c1 = chain(
@@ -264,10 +262,9 @@ class test_chain:
 
         chain_add.app.conf.task_always_eager = prev
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_group_chord_group_chain(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
         redis_connection = get_redis_connection()
         redis_connection.delete('redis-echo')
         before = group(redis_echo.si(f'before {i}') for i in range(3))
@@ -295,11 +292,9 @@ class test_chain:
         result = task.delay()
         assert result.get(timeout=TIMEOUT) == [1, 2, [3, 4]]
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_second_order_replace(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_connection.delete('redis-echo')
 
@@ -341,13 +336,11 @@ class test_chain:
             node = node.parent
             i -= 1
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chord_soft_timeout_recuperation(self, manager):
         """Test that if soft timeout happens in task but is managed by task,
         chord still get results normally
         """
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         c = chord([
             # return 3
             add.s(1, 2),
@@ -361,12 +354,8 @@ class test_chain:
         result = c(delayed_sum.s(pause_time=0)).get()
         assert result == 3
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chain_error_handler_with_eta(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         eta = datetime.utcnow() + timedelta(seconds=10)
         c = chain(
             group(
@@ -379,27 +368,19 @@ class test_chain:
         result = c.get()
         assert result == 10
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_groupresult_serialization(self, manager):
         """Test GroupResult is correctly serialized
         to save in the result backend"""
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         async_result = build_chain_inside_task.delay()
         result = async_result.get()
         assert len(result) == 2
         assert isinstance(result[0][1], list)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_of_task_a_group_and_a_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = add.si(1, 0)
         c = c | group(add.s(1), add.s(1))
         c = c | group(tsum.s(), tsum.s())
@@ -408,14 +389,10 @@ class test_chain:
         res = c()
         assert res.get(timeout=TIMEOUT) == 8
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_of_chords_as_groups_chained_to_a_task_with_two_tasks(self,
                                                                         manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = add.si(1, 0)
         c = c | group(add.s(1), add.s(1))
         c = c | tsum.s()
@@ -426,13 +403,9 @@ class test_chain:
         res = c()
         assert res.get(timeout=TIMEOUT) == 12
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_of_chords_with_two_tasks(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = add.si(1, 0)
         c = c | group(add.s(1), add.s(1))
         c = c | tsum.s()
@@ -442,13 +415,9 @@ class test_chain:
         res = c()
         assert res.get(timeout=TIMEOUT) == 12
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_of_a_chord_and_a_group_with_two_tasks(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = add.si(1, 0)
         c = c | group(add.s(1), add.s(1))
         c = c | tsum.s()
@@ -458,13 +427,9 @@ class test_chain:
         res = c()
         assert res.get(timeout=TIMEOUT) == [6, 6]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_of_a_chord_and_a_task_and_a_group(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = group(add.s(1, 1), add.s(1, 1))
         c = c | tsum.s()
         c = c | add.s(1)
@@ -473,13 +438,9 @@ class test_chain:
         res = c()
         assert res.get(timeout=TIMEOUT) == [6, 6]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_of_a_chord_and_two_tasks_and_a_group(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = group(add.s(1, 1), add.s(1, 1))
         c = c | tsum.s()
         c = c | add.s(1)
@@ -489,13 +450,9 @@ class test_chain:
         res = c()
         assert res.get(timeout=TIMEOUT) == [7, 7]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_of_a_chord_and_three_tasks_and_a_group(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = group(add.s(1, 1), add.s(1, 1))
         c = c | tsum.s()
         c = c | add.s(1)
@@ -517,15 +474,11 @@ class test_chain:
         res = sig.delay()
         assert res.get(timeout=TIMEOUT / 10) == [42, 42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_chain_group_mid(self, manager):
         """
         Test that a mid-point group in a chain completes.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chain(
             identity.s(42),  # 42
             group(identity.s(), identity.s()),  # [42, 42]
@@ -545,10 +498,8 @@ class test_chain:
         res = sig.delay()
         assert res.get(timeout=TIMEOUT) == [42, 42]
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_replaced_with_a_chain_and_a_callback(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_connection.delete('redis-echo')
 
@@ -564,10 +515,8 @@ class test_chain:
         assert res.get(timeout=TIMEOUT) == 'Hello world'
         await_redis_echo({link_msg, })
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_replaced_with_a_chain_and_an_error_callback(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_connection.delete('redis-echo')
 
@@ -583,10 +532,8 @@ class test_chain:
             res.get(timeout=TIMEOUT)
         await_redis_echo({link_msg, })
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_with_cb_replaced_with_chain_with_cb(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_connection.delete('redis-echo')
 
@@ -603,10 +550,8 @@ class test_chain:
         assert res.get(timeout=TIMEOUT) == 'Hello world'
         await_redis_echo({link_msg, 'Hello world'})
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_flattening_keep_links_of_inner_chain(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
 
         link_b_msg = 'link_b called'
@@ -626,12 +571,10 @@ class test_chain:
         assert res.get(timeout=TIMEOUT) == 'abc'
         await_redis_echo((link_b_msg,), redis_key=link_b_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_with_eb_replaced_with_chain_with_eb(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_connection.delete('redis-echo')
 
@@ -659,9 +602,8 @@ class test_chain:
                            match="Cannot replace with an empty chain"):
             r.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_children_with_callbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -680,9 +622,8 @@ class test_chain:
             await_redis_count(child_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_children_with_errbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -703,9 +644,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_with_callback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -722,9 +662,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_with_errback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -742,9 +681,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_child_with_callback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -762,9 +700,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chain_child_with_errback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -811,6 +748,7 @@ class test_chain:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == 42
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @pytest.mark.parametrize('redis_key', ['redis-group-ids'])
     def test_chord_header_id_duplicated_on_rabbitmq_msg_duplication(self, manager, subtests, celery_session_app,
                                                                     redis_key):
@@ -821,12 +759,6 @@ class test_chain:
         To validate the correct behavior is implemented, we collect the original and duplicated chord header ids
         in redis, to ensure that they are the same.
         """
-
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         if manager.app.conf.broker_url.startswith('redis'):
             raise pytest.xfail('Redis broker does not duplicate the task (t1)')
 
@@ -883,20 +815,13 @@ class test_chain:
         redis_connection = get_redis_connection()
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed", "skip_if_not_redis")
     def test_chaining_upgraded_chords_pure_groups(self, manager, subtests):
         """ This test is built to reproduce the github issue https://github.com/celery/celery/issues/5958
 
         The issue describes a canvas where a chain of groups are executed multiple times instead of once.
         This test is built to reproduce the issue and to verify that the issue is fixed.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_key = 'echo_chamber'
 
@@ -936,20 +861,13 @@ class test_chain:
         # Cleanup
         redis_connection.delete(redis_key, 'Done')
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed", "skip_if_not_redis")
     def test_chaining_upgraded_chords_starting_with_chord(self, manager, subtests):
         """ This test is built to reproduce the github issue https://github.com/celery/celery/issues/5958
 
         The issue describes a canvas where a chain of groups are executed multiple times instead of once.
         This test is built to reproduce the issue and to verify that the issue is fixed.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_key = 'echo_chamber'
 
@@ -985,20 +903,13 @@ class test_chain:
         # Cleanup
         redis_connection.delete(redis_key, 'Done')
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed", "skip_if_not_redis")
     def test_chaining_upgraded_chords_mixed_canvas(self, manager, subtests):
         """ This test is built to reproduce the github issue https://github.com/celery/celery/issues/5958
 
         The issue describes a canvas where a chain of groups are executed multiple times instead of once.
         This test is built to reproduce the issue and to verify that the issue is fixed.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         redis_connection = get_redis_connection()
         redis_key = 'echo_chamber'
 
@@ -1053,21 +964,17 @@ class test_result_set:
 
 
 class test_group:
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_ready_with_exception(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         g = group([add.s(1, 2), raise_error.s()])
         result = g.apply_async()
         while not result.ready():
             pass
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_empty_group_result(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         task = group([])
         result = task.apply_async()
 
@@ -1140,12 +1047,8 @@ class test_group:
         res = sig.delay()
         assert res.get(timeout=TIMEOUT) == [42, 42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_group_chord_counting_simple(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         gchild_sig = identity.si(42)
         child_chord = chord((gchild_sig,), identity.s())
         group_sig = group((child_chord,))
@@ -1153,12 +1056,8 @@ class test_group:
         # Wait for the result to land and confirm its value is as expected
         assert res.get(timeout=TIMEOUT) == [[42]]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_group_chord_counting_chain(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         gchild_count = 42
         gchild_sig = chain((identity.si(1337),) * gchild_count)
         child_chord = chord((gchild_sig,), identity.s())
@@ -1167,12 +1066,8 @@ class test_group:
         # Wait for the result to land and confirm its value is as expected
         assert res.get(timeout=TIMEOUT) == [[1337]]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_group_chord_counting_group(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         gchild_count = 42
         gchild_sig = group((identity.si(1337),) * gchild_count)
         child_chord = chord((gchild_sig,), identity.s())
@@ -1181,12 +1076,8 @@ class test_group:
         # Wait for the result to land and confirm its value is as expected
         assert res.get(timeout=TIMEOUT) == [[1337] * gchild_count]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_group_chord_counting_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         gchild_count = 42
         gchild_sig = chord(
             (identity.si(1337),) * gchild_count, identity.si(31337),
@@ -1197,12 +1088,8 @@ class test_group:
         # Wait for the result to land and confirm its value is as expected
         assert res.get(timeout=TIMEOUT) == [[31337]]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_group_chord_counting_mixed(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         gchild_count = 42
         child_chord = chord(
             (
@@ -1222,13 +1109,9 @@ class test_group:
             [42, 42, *((42,) * gchild_count), 1337]
         ]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @pytest.mark.xfail(raises=TimeoutError, reason="#6734")
     def test_nested_group_chord_body_chain(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         child_chord = chord(identity.si(42), chain((identity.s(),)))
         group_sig = group((child_chord,))
         res = group_sig.delay()
@@ -1246,9 +1129,8 @@ class test_group:
         # Re-raise the expected exception so this test will XFAIL
         raise expected_excinfo.value
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_callback_called_by_group(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         callback_msg = str(uuid.uuid4()).encode()
@@ -1265,9 +1147,8 @@ class test_group:
             await_redis_echo({callback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_errback_called_by_group_fail_first(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -1285,9 +1166,8 @@ class test_group:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_errback_called_by_group_fail_last(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -1305,9 +1185,8 @@ class test_group:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_errback_called_by_group_fail_multiple(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         expected_errback_count = 42
@@ -1330,9 +1209,8 @@ class test_group:
             await_redis_count(expected_errback_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_group_children_with_callbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1351,9 +1229,8 @@ class test_group:
             await_redis_count(child_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_group_children_with_errbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1373,9 +1250,8 @@ class test_group:
             await_redis_count(child_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_group_with_callback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1392,9 +1268,8 @@ class test_group:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_group_with_errback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1412,9 +1287,8 @@ class test_group:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_group_child_with_callback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1432,9 +1306,8 @@ class test_group:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_group_child_with_errback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1495,16 +1368,9 @@ def assert_ping(manager):
 
 
 class test_chord:
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed", "skip_if_not_key_val_backend")
     @flaky
     def test_simple_chord_with_a_delay_in_group_save(self, manager, monkeypatch):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
-        if not isinstance(manager.app.backend, BaseKeyValueStoreBackend):
-            raise pytest.skip("The delay may only occur in the cache backend")
-
         x = BaseKeyValueStoreBackend._apply_chord_incr
 
         def apply_chord_incr_with_sleep(self, *args, **kwargs):
@@ -1520,11 +1386,9 @@ class test_chord:
         result = c()
         assert result.get(timeout=TIMEOUT) == 4
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @pytest.mark.xfail(reason="async_results aren't performed in async way")
     def test_redis_subscribed_channels_leak(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         manager.app.backend.result_consumer.on_after_fork()
         initial_channels = get_active_redis_channels()
         initial_channels_count = len(initial_channels)
@@ -1561,13 +1425,9 @@ class test_chord:
         assert channels_after_count == initial_channels_count
         assert set(channels_after) == set(initial_channels)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_replaced_nested_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c1 = chord([
             chord(
                 [add.s(1, 2), add_replaced.s(3, 4)],
@@ -1581,20 +1441,16 @@ class test_chord:
         res1 = c1()
         assert res1.get(timeout=TIMEOUT) == [29, 38]
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_add_to_chord(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         c = group([add_to_all_to_chord.s([1, 2, 3], 4)]) | identity.s()
         res = c()
         assert sorted(res.get()) == [0, 5, 6, 7]
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_add_chord_to_chord(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         c = group([add_chord_to_chord.s([1, 2, 3], 4)]) | identity.s()
         res = c()
         assert sorted(res.get()) == [0, 5 + 6 + 7]
@@ -1610,12 +1466,8 @@ class test_chord:
 
         chord_add.app.conf.task_always_eager = prev
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_group_chain(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = (
             add.s(2, 2) |
             group(add.s(i) for i in range(4)) |
@@ -1624,11 +1476,8 @@ class test_chord:
         res = c()
         assert res.get(timeout=TIMEOUT) == [12, 13, 14, 15]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_group_kwargs(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
         c = (
             add.s(2, 2) |
             group(add.s(i) for i in range(4)) |
@@ -1637,11 +1486,8 @@ class test_chord:
         res = c.apply_async(kwargs={"z": 1})
         assert res.get(timeout=TIMEOUT) == [13, 14, 15, 16]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_group_args_and_kwargs(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
         c = (
             group(add.s(i) for i in range(4)) |
             add_to_all.s(8)
@@ -1654,12 +1500,8 @@ class test_chord:
         else:
             assert res.get(timeout=TIMEOUT) == [13, 14, 15, 16]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_group_chain(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = chain(
             add.si(1, 0),
             group(
@@ -1677,13 +1519,9 @@ class test_chord:
         res = c()
         assert res.get(timeout=TIMEOUT) == 11
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_single_task_header(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c1 = chord([add.s(2, 5)], body=add_to_all.s(9))
         res1 = c1()
         assert res1.get(timeout=TIMEOUT) == [16]
@@ -1692,12 +1530,8 @@ class test_chord:
         res2 = c2()
         assert res2.get(timeout=TIMEOUT) == [16]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_empty_header_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c1 = chord([], body=add_to_all.s(9))
         res1 = c1()
         assert res1.get(timeout=TIMEOUT) == []
@@ -1706,13 +1540,9 @@ class test_chord:
         res2 = c2()
         assert res2.get(timeout=TIMEOUT) == []
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_nested_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c1 = chord([
             chord([add.s(1, 2), add.s(3, 4)], add.s([5])),
             chord([add.s(6, 7)], add.s([10]))
@@ -1740,10 +1570,9 @@ class test_chord:
         res = c()
         assert [[[[3, 3], 4], 5], 6] == res.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_parent_ids(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
         root = ids.si(i=1)
         expected_root_id = root.freeze().id
         g = chain(
@@ -1755,10 +1584,9 @@ class test_chord:
         )
         self.assert_parentids_chord(g(), expected_root_id)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     def test_parent_ids__OR(self, manager):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
         root = ids.si(i=1)
         expected_root_id = root.freeze().id
         g = (
@@ -1806,13 +1634,11 @@ class test_chord:
         assert root_id == expected_root_id
         assert parent_id is None
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_chord_on_error(self, manager):
         from celery import states
 
         from .tasks import ExpectedException
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
 
         # Run the chord and wait for the error callback to finish. Note that
         # this only works for old style callbacks since they get dispatched to
@@ -1882,12 +1708,10 @@ class test_chord:
         assert len([cr for cr in chord_results if cr[2] != states.SUCCESS]
                    ) == 1
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @flaky
     @pytest.mark.parametrize('size', [3, 4, 5, 6, 7, 8, 9])
     def test_generator(self, manager, size):
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
-
         def assert_generator(file_name):
             for i in range(size):
                 sleep(1)
@@ -1903,13 +1727,9 @@ class test_chord:
             c = chord(assert_generator(file_name), tsum.s())
             assert c().get(timeout=TIMEOUT) == size * (size - 1) // 2
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_parallel_chords(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c1 = chord(group(add.s(1, 2), add.s(3, 4)), tsum.s())
         c2 = chord(group(add.s(1, 2), add.s(3, 4)), tsum.s())
         g = group(c1, c2)
@@ -1917,13 +1737,9 @@ class test_chord:
 
         assert r.get(timeout=TIMEOUT) == [10, 10]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chord_in_chords_with_chains(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = chord(
             group([
                 chain(
@@ -1948,13 +1764,10 @@ class test_chord:
 
         assert r.get(timeout=TIMEOUT) == 4
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_chord_chain_chord(self, manager):
         # test for #2573
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
         c = chain(
             identity.si(1),
             chord(
@@ -1974,13 +1787,9 @@ class test_chord:
         res = c.delay()
         assert res.get(timeout=TIMEOUT) == 7
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @pytest.mark.xfail(reason="Issue #6176")
     def test_chord_in_chain_with_args(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c1 = chain(
             chord(
                 [identity.s(), identity.s()],
@@ -1993,13 +1802,9 @@ class test_chord:
         res1 = c1.apply(args=(1,))
         assert res1.get(timeout=TIMEOUT) == [1, 1]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @pytest.mark.xfail(reason="Issue #6200")
     def test_chain_in_chain_with_args(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c1 = chain(  # NOTE: This chain should have only 1 chain inside it
             chain(
                 identity.s(),
@@ -2012,24 +1817,16 @@ class test_chord:
         res1 = c1.apply(args=(1,))
         assert res1.get(timeout=TIMEOUT) == 1
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_large_header(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = group(identity.si(i) for i in range(1000)) | tsum.s()
         res = c.delay()
         assert res.get(timeout=TIMEOUT) == 499500
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @flaky
     def test_chain_to_a_chord_with_large_header(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = identity.si(1) | group(
             identity.s() for _ in range(1000)) | tsum.s()
         res = c.delay()
@@ -2046,15 +1843,11 @@ class test_chord:
             priority=5)
         assert c().get(timeout=TIMEOUT) == "Priority: 5"
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_chord_group(self, manager):
         """
         Confirm that groups nested inside chords get unrolled.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chord(
             (
                 group(identity.s(42), identity.s(42)),  # [42, 42]
@@ -2064,6 +1857,7 @@ class test_chord:
         res = sig.delay()
         assert res.get(timeout=TIMEOUT) == [42, 42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_nested_chord_group_chain_group_tail(self, manager):
         """
         Sanity check that a deeply nested group is completed as expected.
@@ -2071,11 +1865,6 @@ class test_chord:
         Groups at the end of chains nested in chords have had issues and this
         simple test sanity check that such a task structure can be completed.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chord(
             group(
                 chain(
@@ -2091,37 +1880,25 @@ class test_chord:
         res = sig.delay()
         assert res.get(timeout=TIMEOUT) == [[42, 42]]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     @pytest.mark.xfail(TEST_BACKEND.startswith('redis://'), reason="Issue #6437")
     def test_error_propagates_from_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = add.s(1, 1) | fail.s() | group(add.s(1), add.s(1))
         res = sig.delay()
 
         with pytest.raises(ExpectedException):
             res.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_error_propagates_from_chord2(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = add.s(1, 1) | add.s(1) | group(add.s(1), fail.s())
         res = sig.delay()
 
         with pytest.raises(ExpectedException):
             res.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_error_propagates_to_chord_from_simple(self, manager, subtests):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         child_sig = fail.s()
 
         chord_sig = chord((child_sig,), identity.s())
@@ -2136,11 +1913,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_immutable_errback_called_by_chord_from_simple(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2173,14 +1949,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_simple(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2213,12 +1988,8 @@ class test_chord:
             await_redis_count(1, redis_key=expected_redis_key)
         redis_connection.delete(expected_redis_key)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_error_propagates_to_chord_from_chain(self, manager, subtests):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         child_sig = chain(identity.si(42), fail.s(), identity.si(42))
 
         chord_sig = chord((child_sig,), identity.s())
@@ -2237,11 +2008,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_immutable_errback_called_by_chord_from_chain(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2278,14 +2048,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_chain(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2324,12 +2093,8 @@ class test_chord:
             await_redis_count(1, redis_key=expected_redis_key)
         redis_connection.delete(expected_redis_key)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_error_propagates_to_chord_from_chain_tail(self, manager, subtests):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         child_sig = chain(identity.si(42), fail.s())
 
         chord_sig = chord((child_sig,), identity.s())
@@ -2348,11 +2113,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_immutable_errback_called_by_chord_from_chain_tail(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2389,14 +2153,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_chain_tail(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2435,12 +2198,8 @@ class test_chord:
             await_redis_count(1, redis_key=expected_redis_key)
         redis_connection.delete(expected_redis_key)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_error_propagates_to_chord_from_group(self, manager, subtests):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         child_sig = group(identity.si(42), fail.s())
 
         chord_sig = chord((child_sig,), identity.s())
@@ -2455,11 +2214,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_immutable_errback_called_by_chord_from_group(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2488,14 +2246,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_group(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2526,11 +2283,10 @@ class test_chord:
             await_redis_count(1, redis_key=expected_redis_key)
         redis_connection.delete(expected_redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     def test_immutable_errback_called_by_chord_from_group_fail_multiple(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         fail_task_count = 42
@@ -2568,12 +2324,11 @@ class test_chord:
             await_redis_count(fail_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @pytest.mark.parametrize("errback_task", [errback_old_style, errback_new_style])
     def test_mutable_errback_called_by_chord_from_group_fail_multiple_on_header_failure(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         fail_task_count = 42
@@ -2603,12 +2358,11 @@ class test_chord:
             # is attached to the chord body which is a single task!
             await_redis_count(1, redis_key=expected_redis_key)
 
+    @pytest.mark.usefixtures("skip_if_not_redis")
     @pytest.mark.parametrize("errback_task", [errback_old_style, errback_new_style])
     def test_mutable_errback_called_by_chord_from_group_fail_multiple_on_body_failure(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         fail_task_count = 42
@@ -2649,12 +2403,8 @@ class test_chord:
         for fail_sig_id in fail_sig_ids:
             redis_connection.delete(fail_sig_id)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_header_task_replaced_with_chain(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             replace_with_chain.si(42),
             identity.s(),
@@ -2662,12 +2412,8 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_header_child_replaced_with_chain_first(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             (replace_with_chain.si(42), identity.s(1337),),
             identity.s(),
@@ -2675,12 +2421,8 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42, 1337]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_header_child_replaced_with_chain_middle(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             (identity.s(42), replace_with_chain.s(1337), identity.s(31337),),
             identity.s(),
@@ -2688,12 +2430,8 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42, 1337, 31337]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_header_child_replaced_with_chain_last(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             (identity.s(42), replace_with_chain.s(1337),),
             identity.s(),
@@ -2701,12 +2439,8 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42, 1337]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_body_task_replaced_with_chain(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             identity.s(42),
             replace_with_chain.s(),
@@ -2714,12 +2448,8 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_body_chain_child_replaced_with_chain_first(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             identity.s(42),
             chain(replace_with_chain.s(), identity.s(), ),
@@ -2727,12 +2457,8 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_body_chain_child_replaced_with_chain_middle(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             identity.s(42),
             chain(identity.s(), replace_with_chain.s(), identity.s(), ),
@@ -2740,12 +2466,8 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_chord_body_chain_child_replaced_with_chain_last(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         orig_sig = chord(
             identity.s(42),
             chain(identity.s(), replace_with_chain.s(), ),
@@ -2753,6 +2475,7 @@ class test_chord:
         res_obj = orig_sig.delay()
         assert res_obj.get(timeout=TIMEOUT) == [42]
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed", "skip_if_not_redis")
     def test_enabling_flag_allow_error_cb_on_chord_header(self, manager, subtests):
         """
         Test that the flag allow_error_callback_on_chord_header works as
@@ -2762,13 +2485,6 @@ class test_chord:
         when the flag is turned on. In addition, we make sure the body error callback
         is also executed when the header fails and the flag is turned on.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
         redis_connection = get_redis_connection()
 
         manager.app.conf.task_allow_error_cb_on_chord_header = True
@@ -2827,18 +2543,12 @@ class test_chord:
 
             redis_connection.delete(header_errback_key, body_errback_key)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed", "skip_if_not_redis")
     def test_disabling_flag_allow_error_cb_on_chord_header(self, manager, subtests):
         """
         Confirm that when allow_error_callback_on_chord_header is disabled, the default
         behavior is kept.
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
         redis_connection = get_redis_connection()
 
         manager.app.conf.task_allow_error_cb_on_chord_header = False
@@ -2887,17 +2597,11 @@ class test_chord:
             # Cleanup
             redis_connection.delete(errback_key)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed", "skip_if_not_redis")
     def test_flag_allow_error_cb_on_chord_header_on_upgraded_chord(self, manager, subtests):
         """
         Confirm that allow_error_callback_on_chord_header flag supports upgraded chords
         """
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
-        if not manager.app.conf.result_backend.startswith('redis'):
-            raise pytest.skip('Requires redis result backend.')
         redis_connection = get_redis_connection()
 
         manager.app.conf.task_allow_error_cb_on_chord_header = True
@@ -2976,12 +2680,8 @@ class test_signature_serialization:
         )
         sig.delay().get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_rebuild_nested_chain_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chain(
             tasks.return_nested_signature_chain_chord.s(),
             tasks.rebuild_signature.s()
@@ -3002,48 +2702,32 @@ class test_signature_serialization:
         )
         sig.delay().get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_rebuild_nested_group_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chain(
             tasks.return_nested_signature_group_chord.s(),
             tasks.rebuild_signature.s()
         )
         sig.delay().get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_rebuild_nested_chord_chain(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chain(
             tasks.return_nested_signature_chord_chain.s(),
             tasks.rebuild_signature.s()
         )
         sig.delay().get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_rebuild_nested_chord_group(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chain(
             tasks.return_nested_signature_chord_group.s(),
             tasks.rebuild_signature.s()
         )
         sig.delay().get(timeout=TIMEOUT)
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_rebuild_nested_chord_chord(self, manager):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         sig = chain(
             tasks.return_nested_signature_chord_chord.s(),
             tasks.rebuild_signature.s()
@@ -3052,12 +2736,8 @@ class test_signature_serialization:
 
 
 class test_stamping_mechanism:
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_stamping_workflow(self, manager, subtests):
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         workflow = group(
             add.s(1, 2) | add.s(3),
             add.s(4, 5) | add.s(6),
@@ -3123,13 +2803,9 @@ class test_stamping_mechanism:
             assert canvas_workflow.apply_async().get() == [42] * 2
             assert assertion_result
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_stamping_example_canvas(self, manager):
         """Test the stamping example canvas from the examples directory"""
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         c = chain(
             group(identity.s(i) for i in range(1, 4)) | xsum.s(),
             chord(group(mul.s(10) for _ in range(1, 4)), xsum.s()),
@@ -3249,13 +2925,9 @@ class test_stamping_mechanism:
         stamped_task.apply_async().get()
         assert assertion_result
 
+    @pytest.mark.usefixtures("skip_if_chords_not_allowed")
     def test_all_tasks_of_canvas_are_stamped(self, manager, subtests):
         """Test that complex canvas are stamped correctly"""
-        try:
-            manager.app.backend.ensure_chords_allowed()
-        except NotImplementedError as e:
-            raise pytest.skip(e.args[0])
-
         @task_received.connect
         def task_received_handler(**kwargs):
             request = kwargs["request"]
