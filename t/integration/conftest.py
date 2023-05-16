@@ -89,6 +89,7 @@ def celery_class_tasks():
     from t.integration.tasks import ClassBasedAutoRetryTask
     return [ClassBasedAutoRetryTask]
 
+
 def skip_if_not_redis(func):
     @pytest.mark.skipif(reason="Requires redis result backend.")
     def wrapper(*args, **kwargs):
