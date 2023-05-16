@@ -16,7 +16,7 @@ from celery.result import AsyncResult, GroupResult, ResultSet
 from celery.signals import before_task_publish, task_received
 
 from . import tasks
-from .conftest import TEST_BACKEND, get_active_redis_channels, get_redis_connection
+from .conftest import TEST_BACKEND, get_active_redis_channels, get_redis_connection, skip_if_not_redis
 from .tasks import (ExpectedException, StampOnReplace, add, add_chord_to_chord, add_replaced, add_to_all,
                     add_to_all_to_chord, build_chain_inside_task, collect_ids, delayed_sum,
                     delayed_sum_with_soft_guard, errback_new_style, errback_old_style, fail, fail_replaced, identity,
@@ -659,9 +659,8 @@ class test_chain:
                            match="Cannot replace with an empty chain"):
             r.get(timeout=TIMEOUT)
 
+    @skip_if_not_redis
     def test_chain_children_with_callbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -680,9 +679,8 @@ class test_chain:
             await_redis_count(child_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_chain_children_with_errbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -703,9 +701,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_chain_with_callback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -722,9 +719,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_chain_with_errback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -742,9 +738,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_chain_child_with_callback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -762,9 +757,8 @@ class test_chain:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_chain_child_with_errback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1246,9 +1240,8 @@ class test_group:
         # Re-raise the expected exception so this test will XFAIL
         raise expected_excinfo.value
 
+    @skip_if_not_redis
     def test_callback_called_by_group(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         callback_msg = str(uuid.uuid4()).encode()
@@ -1265,9 +1258,8 @@ class test_group:
             await_redis_echo({callback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_errback_called_by_group_fail_first(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -1285,9 +1277,8 @@ class test_group:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_errback_called_by_group_fail_last(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -1305,9 +1296,8 @@ class test_group:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_errback_called_by_group_fail_multiple(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         expected_errback_count = 42
@@ -1330,9 +1320,8 @@ class test_group:
             await_redis_count(expected_errback_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_group_children_with_callbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1351,9 +1340,8 @@ class test_group:
             await_redis_count(child_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_group_children_with_errbacks(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1373,9 +1361,8 @@ class test_group:
             await_redis_count(child_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_group_with_callback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1392,9 +1379,8 @@ class test_group:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_group_with_errback_child_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1412,9 +1398,8 @@ class test_group:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_group_child_with_callback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -1432,9 +1417,8 @@ class test_group:
             await_redis_count(1, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     def test_group_child_with_errback_replaced(self, manager, subtests):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         redis_key = str(uuid.uuid4())
@@ -2136,11 +2120,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @skip_if_not_redis
     def test_immutable_errback_called_by_chord_from_simple(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2173,14 +2156,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_simple(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2237,11 +2219,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @skip_if_not_redis
     def test_immutable_errback_called_by_chord_from_chain(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2278,14 +2259,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_chain(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2348,11 +2328,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @skip_if_not_redis
     def test_immutable_errback_called_by_chord_from_chain_tail(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2389,14 +2368,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_chain_tail(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2455,11 +2433,10 @@ class test_chord:
             with pytest.raises(ExpectedException):
                 res.get(timeout=TIMEOUT)
 
+    @skip_if_not_redis
     def test_immutable_errback_called_by_chord_from_group(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback_msg = str(uuid.uuid4()).encode()
@@ -2488,14 +2465,13 @@ class test_chord:
             await_redis_echo({errback_msg, }, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     @pytest.mark.parametrize(
         "errback_task", [errback_old_style, errback_new_style, ],
     )
     def test_mutable_errback_called_by_chord_from_group(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         errback = errback_task.s()
@@ -2526,11 +2502,10 @@ class test_chord:
             await_redis_count(1, redis_key=expected_redis_key)
         redis_connection.delete(expected_redis_key)
 
+    @skip_if_not_redis
     def test_immutable_errback_called_by_chord_from_group_fail_multiple(
         self, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         fail_task_count = 42
@@ -2568,12 +2543,11 @@ class test_chord:
             await_redis_count(fail_task_count, redis_key=redis_key)
         redis_connection.delete(redis_key)
 
+    @skip_if_not_redis
     @pytest.mark.parametrize("errback_task", [errback_old_style, errback_new_style])
     def test_mutable_errback_called_by_chord_from_group_fail_multiple_on_header_failure(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         fail_task_count = 42
@@ -2603,12 +2577,11 @@ class test_chord:
             # is attached to the chord body which is a single task!
             await_redis_count(1, redis_key=expected_redis_key)
 
+    @skip_if_not_redis
     @pytest.mark.parametrize("errback_task", [errback_old_style, errback_new_style])
     def test_mutable_errback_called_by_chord_from_group_fail_multiple_on_body_failure(
         self, errback_task, manager, subtests
     ):
-        if not manager.app.conf.result_backend.startswith("redis"):
-            raise pytest.skip("Requires redis result backend.")
         redis_connection = get_redis_connection()
 
         fail_task_count = 42
