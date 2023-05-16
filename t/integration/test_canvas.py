@@ -1848,7 +1848,7 @@ class test_chord:
         """
         Confirm that groups nested inside chords get unrolled.
         """
-        ig = chord(
+        sig = chord(
             (
                 group(identity.s(42), identity.s(42)),  # [42, 42]
             ),
@@ -2733,6 +2733,7 @@ class test_signature_serialization:
             tasks.rebuild_signature.s()
         )
         sig.delay().get(timeout=TIMEOUT)
+
 
 class test_stamping_mechanism:
     @pytest.mark.usefixtures("skip_if_chords_not_allowed")
